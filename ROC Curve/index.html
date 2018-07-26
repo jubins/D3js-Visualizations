@@ -1,0 +1,146 @@
+<div style="margin-top: 1%;">
+        <div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 650px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
+            <div id="chart-area"></div>
+        </div>
+
+        <div class="col-xs-12 col-sm-4 col-md-4 text-left" style="padding: 5px 2%;">
+            <div class="slider">
+                <svg></svg>
+            </div>
+        </div>
+</div>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js.map"></script>
+<link rel="stylesheet" href="//rawgithub.com/Caged/d3-tip/master/examples/example-styles.css">
+<script>
+function create_chart(data) {
+	// Setting up the graph margin, scale and labels
+	var margin = {left: 60, right: 20, top: 20, bottom: 60};
+	var height = 450 - margin.top - margin.bottom,
+		width = 600 - margin.left - margin.right;
+	var g = d3.select('#chart-area')
+		.append('svg')
+		.attr('width', width + margin.left + margin.right)
+		.attr('height', height + margin.top + margin.bottom)
+		.append('g')
+		.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+	var x = d3.scaleLinear()
+		.range([0, width])
+		.domain([0, 1]);
+	var xAxisCall = d3.axisBottom(x)
+	//.tickValues([0, 0.2, 0.4, 0.6, 0.8, 1])
+		.tickFormat(d3.format('.2f'));
+	g.append('g')
+		.attr('class', 'x axis')
+		.attr('transform', 'translate(0,' + height + ')')
+		.call(xAxisCall);
+	var xLabel = g.append('text')
+		.attr('y', height + 40)
+		.attr('x', width / 2)
+		.attr('font-size', '15px')
+		.attr('text-anchor', 'middle')
+		.text('False Positive Rate (FPR)');
+	var y = d3.scaleLinear()
+		.range([height, 0])
+		.domain([0, 1]);
+	var yAxisCall = d3.axisLeft(y)
+	//.tickValues([0, 0.2, 0.4, 0.6, 0.8, 1])
+		.tickFormat(d3.format('.2f'));
+	g.append('g')
+		.attr('class', 'y axis')
+		.call(yAxisCall);
+	var yLabel = g.append('text')
+		.attr('transform', 'rotate(-90)')
+		.attr('y', 0 - margin.left + 20)
+		.attr('x', 0 - height / 2)
+		.attr('font-size', '15px')
+		.attr('text-anchor', 'middle')
+		.text('True Positive Rate (TPR)');
+
+	// Tooltip
+	var focus = g.append("g")
+		.attr("class", "focus")
+		.style("display", "none");
+
+	focus.append("line")
+		.attr("class", "x-hover-line hover-line")
+		.attr("y1", 0)
+		.attr("y2", height);
+
+	focus.append("line")
+		.attr("class", "y-hover-line hover-line")
+		.attr("x1", 0)
+		.attr("x2", width);
+
+	focus.append("circle")
+		.attr("r", 7.5);
+
+	focus.append("text")
+		.attr("x", 15)
+		.attr("dy", ".31em");
+
+	g.append("rect")
+		.attr("class", "overlay")
+		.attr("width", width)
+		.attr("height", height)
+		.on("mouseover", function() { focus.style("display", null); })
+		.on("mouseout", function() { focus.style("display", "none"); })
+		.on("mousemove", mousemove);
+	var bisectData = d3.bisector(function (d) { return d.threshold; }).left;
+	function mousemove() {
+		var x0 = x.invert(d3.mouse(this)[0]),
+			i = bisectData(data, x0, 1),
+			d0 = data[i - 1],
+			d1 = data[i],
+			d = x0 - d0.fpr > d1.fpr - x0 ? d1 : d0;
+		focus.attr("transform", "translate(" + x(d.fpr) + ", " + y(d.tpr) + ")");
+		focus.select("text").text(d.threshold);
+		focus.select(".x-hover-line").attr("y2", height - y(d.fpr));
+		focus.select(".y-hover-line").attr("x2", -x(d.tpr));
+	}
+
+	// Line path generator
+	var line = d3.line()
+		.x(function (d) {
+			return x(d.fpr); })
+		.y(function (d) {
+			return y(d.tpr); });
+	// Setting scale domains
+	x.domain(d3.extent(data, function (d) { return d.fpr; }));
+	y.domain(d3.extent(data, function (d) { return d.tpr; }));
+	// Generating axes once scales have been set
+	// Axis groups
+	var xAxis = g.append("g")
+		.attr("class", "x axis")
+		.attr("transform", "translate(0," + height + ")");
+	var yAxis = g.append("g")
+		.attr("class", "y axis");
+	xAxis.call(xAxisCall.scale(x));
+	yAxis.call(yAxisCall.scale(y));
+	// Adding line to chart
+	g.append("path")
+		.attr("class", "line")
+		.attr("fill", "none")
+		.attr("stroke", "grey")
+		.attr("stroke-with", "3px")
+		.attr("d", line(data))
+		;
+}
+
+var data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8},
+	{'fpr': 0.2, 'tpr': 0.2, 'threshold': 0.7},
+	{'fpr': 0.4, 'tpr': 0.5, 'threshold': 0.6},
+	{'fpr': 0.6, 'tpr': 0.6, 'threshold': 0.4},
+	{'fpr': 0.7, 'tpr': 0.7, 'threshold': 0.35},
+	{'fpr': 0.8, 'tpr': 0.8, 'threshold': 0.31},
+	{'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3},
+	{'fpr': 0.9, 'tpr': 1.0, 'threshold': 0.29},
+	{'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.28},
+	{'fpr': 0.95, 'tpr': 1.0, 'threshold': 0.25},
+	{'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1}
+	];
+create_chart(data);
+</script>
