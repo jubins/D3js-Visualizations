@@ -147,7 +147,6 @@ function create_chart(data) {
         tipText += "<strong>Threshold:</strong> <span style='color:red'>" + d3.format(".4f")(d.threshold) + "</span><br>";
 		focus.attr("transform", "translate(" + x(d.fpr) + ", " + y(d.tpr) + ")");
 		focus.select("text").text(tipText);
-    
 		focus.select(".x-hover-line").attr("y2", height - y(d.fpr));
 		focus.select(".y-hover-line").attr("x2", -x(d.tpr));
 	}

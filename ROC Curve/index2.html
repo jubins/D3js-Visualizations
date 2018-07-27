@@ -1,0 +1,135 @@
+<div style="margin-top: 1%;">
+        <div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 650px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
+            <div id="chart-area"></div>
+        </div>
+
+        <div class="col-xs-12 col-sm-4 col-md-4 text-left" style="padding: 5px 2%;">
+            <div class="slider">
+                <svg></svg>
+            </div>
+        </div>
+</div>
+
+
+<script>
+    $(function () {
+        function create_chart(data) {
+            // Setting up the graph margin, scale and labels
+            var margin = {left: 60, right: 20, top: 20, bottom: 60};
+            var height = 450 - margin.top - margin.bottom,
+                width = 600 - margin.left - margin.right;
+            var g = d3.select('#chart-area')
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
+            var x = d3.scaleLinear()
+                .range([0, width])
+                .domain([0, 1]);
+            var xAxisCall = d3.axisBottom(x)
+            //.tickValues([0, 0.2, 0.4, 0.6, 0.8, 1])
+                .tickFormat(d3.format('.2f'));
+            g.append('g')
+                .attr('class', 'x axis')
+                .attr('transform', 'translate(0,' + height + ')')
+                .call(xAxisCall);
+            var xLabel = g.append('text')
+                .attr('y', height + 40)
+                .attr('x', width / 2)
+                .attr('font-size', '15px')
+                .attr('text-anchor', 'middle')
+                .text('False Positive Rate (FPR)');
+            var y = d3.scaleLinear()
+                .range([height, 0])
+                .domain([0, 1]);
+            var yAxisCall = d3.axisLeft(y)
+            //.tickValues([0, 0.2, 0.4, 0.6, 0.8, 1])
+                .tickFormat(d3.format('.2f'));
+            g.append('g')
+                .attr('class', 'y axis')
+                .call(yAxisCall);
+            var yLabel = g.append('text')
+                .attr('transform', 'rotate(-90)')
+                .attr('y', 0 - margin.left + 20)
+                .attr('x', 0 - height / 2)
+                .attr('font-size', '15px')
+                .attr('text-anchor', 'middle')
+                .text('True Positive Rate (TPR)');
+
+            // Line path generator
+            var line = d3.line()
+                        .x(function (d) {return x(d.fpr); })
+                        .y(function (d) {return y(d.tpr); });
+            g.selectAll()
+                .data(data).enter()
+                .append('path')
+                .attr('fill', 'none')
+                .attr('class', 'line')
+                .attr('id', function(d) {return d.color; })
+                .attr('stroke', function(d) {return d.color; })
+                .attr('stroke-width', 2)
+                .datum(function (d) {return d.dataset; })
+                .attr('d', line);
+
+
+            // Legends
+            var datasets = data.map(function (d) {return d.name; });
+            var legend = g.append('g')
+                            .attr("transform", "translate(" + (width - 10) + "," + (height - 125) + ")");
+            datasets.forEach(function(d, i) {
+                var legendRow = legend.append("g")
+                    .attr("transform", "translate(0, " + (i * 20) + ")");
+                legendRow.append("rect")
+                    .attr("width", 10)
+                    .attr("height", 10)
+                    .attr("fill", data[i].color)
+                    .on("click", function(){
+                        // determine if current line is visible
+                        var ele = d3.select("#"+data[i].color),
+                            active = !data[i].color.active,
+                            newOpacity = active ? 0 : 1;
+                        // hide or show the elements
+
+                        console.log(ele);
+                        ele.style("opacity", newOpacity);
+                        // update whether or not the elements are active
+                        ele.active = active;
+                    }).text(data[i].color)
+
+                ;
+                legendRow.append("text")
+                    .attr("x", -10)
+                    .attr("y", 10)
+                    .attr("text-anchor", "end")
+                    .style("text-transform", "capitalize")
+                    .text(d); });
+
+            // Tooltip
+
+
+        }
+
+        var train_data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8},
+            {'fpr': 0.12, 'tpr': 0.2, 'threshold': 0.7}, {'fpr': 0.14, 'tpr': 0.5, 'threshold': 0.6},
+            {'fpr': 0.61, 'tpr': 0.6, 'threshold': 0.4}, {'fpr': 0.71, 'tpr': 0.7, 'threshold': 0.35},
+            {'fpr': 0.8, 'tpr': 0.8, 'threshold': 0.31}, {'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3}, {'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.29},
+            {'fpr': 0.92, 'tpr': 1.0, 'threshold': 0.28}, {'fpr': 0.97, 'tpr': 1.0, 'threshold': 0.25},
+            {'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1} ];
+        var test_data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8}, {'fpr': 0.2, 'tpr': 0.2, 'threshold': 0.7},
+            {'fpr': 0.4, 'tpr': 0.5, 'threshold': 0.6}, {'fpr': 0.6, 'tpr': 0.6, 'threshold': 0.4},
+            {'fpr': 0.7, 'tpr': 0.7, 'threshold': 0.35}, {'fpr': 0.8, 'tpr': 0.8, 'threshold': 0.31},
+            {'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3}, {'fpr': 0.9, 'tpr': 1.0, 'threshold': 0.29},
+            {'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.28}, {'fpr': 0.95, 'tpr': 1.0, 'threshold': 0.25},
+            {'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1} ];
+        var data = [{'name': 'Training Data',
+                    'color': 'steelblue',
+                    'dataset': train_data
+                    },
+                    {'name': 'Test Data',
+                        'color': 'red',
+                        'dataset': test_data
+                    }];
+        create_chart(data);
+    });
+</script>
