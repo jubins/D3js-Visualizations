@@ -1,20 +1,25 @@
-<div style="margin-top: 1%;">
-        <div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 650px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
-            <div id="chart-area"></div>
-        </div>
-
-        <div class="col-xs-12 col-sm-4 col-md-4 text-left" style="padding: 5px 2%;">
-            <div class="slider">
-                <svg></svg>
-            </div>
-        </div>
-</div>
-
+<!-- External Libraries --> 
+<script src="jquery-3.3.1.min.js"></script>
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js.map"></script>
 <link rel="stylesheet" href="//rawgithub.com/Caged/d3-tip/master/examples/example-styles.css">
+
+<!-- HTML UI --> 
+<div style="margin-top: 1%;">
+	<div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 650px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
+		<div id="chart-area"></div>
+	</div>
+
+	<div class="col-xs-12 col-sm-4 col-md-4 text-left" style="padding: 5px 2%;">
+		<div class="slider">
+			<svg></svg>
+		</div>
+	</div>
+</div>
+
+<!-- D3.js --> 
 <script>
 function create_chart(data) {
 	// Setting up the graph margin, scale and labels
@@ -60,30 +65,71 @@ function create_chart(data) {
 		.attr('text-anchor', 'middle')
 		.text('True Positive Rate (TPR)');
 
-	// Tooltip
+	// Line path generator
+	var line = d3.line()
+				.x(function (d) {return x(d.fpr); })
+				.y(function (d) {return y(d.tpr); });
+	g.selectAll()
+		.data(data).enter()
+		.append('path')
+		.attr('fill', 'none')
+		.attr('class', 'line')
+		.attr('id', function(d) {return d.color; })
+		.attr('stroke', function(d) {return d.color; })
+		.attr('stroke-width', 2)
+		.datum(function (d) {return d.dataset; })
+		.attr('d', line);
+
+	// Legends (Interactive legends NOT WORKING)
+	var datasets = data.map(function (d) {return d.name; });
+	var legend = g.append('g')
+					.attr("transform", "translate(" + (width - 10) + "," + (height - 125) + ")");
+	datasets.forEach(function(d, i) {
+		var legendRow = legend.append("g")
+			.attr("transform", "translate(0, " + (i * 20) + ")");
+		legendRow.append("rect")
+			.attr("width", 10)
+			.attr("height", 10)
+			.attr("fill", data[i].color)
+			.on("click", function(){ // Interactive Legends (NOT WORKING)
+				// determine if current line is visible
+				var ele = d3.select("#"+data[i].color),
+					active = !data[i].color.active,
+					newOpacity = active ? 0 : 1;
+				// hide or show the elements
+				console.log(ele);
+				ele.style("opacity", newOpacity);
+				// update whether or not the elements are active
+				ele.active = active;
+			}).text(data[i].color);
+			
+		legendRow.append("text")
+			.attr("x", -10)
+			.attr("y", 10)
+			.attr("text-anchor", "end")
+			.style("text-transform", "capitalize")
+			.text(d); });
+
+	// Tooltip (NOT WORKING)
 	var focus = g.append("g")
 		.attr("class", "focus")
 		.style("display", "none");
-
 	focus.append("line")
 		.attr("class", "x-hover-line hover-line")
 		.attr("y1", 0)
 		.attr("y2", height);
-
 	focus.append("line")
 		.attr("class", "y-hover-line hover-line")
 		.attr("x1", 0)
 		.attr("x2", width);
-
 	focus.append("circle")
 		.attr("r", 7.5);
-
 	focus.append("text")
 		.attr("x", 15)
 		.attr("dy", ".31em");
-
 	g.append("rect")
 		.attr("class", "overlay")
+		.attr("opacity", 0)
 		.attr("width", width)
 		.attr("height", height)
 		.on("mouseover", function() { focus.style("display", null); })
@@ -102,45 +148,28 @@ function create_chart(data) {
 		focus.select(".y-hover-line").attr("x2", -x(d.tpr));
 	}
 
-	// Line path generator
-	var line = d3.line()
-		.x(function (d) {
-			return x(d.fpr); })
-		.y(function (d) {
-			return y(d.tpr); });
-	// Setting scale domains
-	x.domain(d3.extent(data, function (d) { return d.fpr; }));
-	y.domain(d3.extent(data, function (d) { return d.tpr; }));
-	// Generating axes once scales have been set
-	// Axis groups
-	var xAxis = g.append("g")
-		.attr("class", "x axis")
-		.attr("transform", "translate(0," + height + ")");
-	var yAxis = g.append("g")
-		.attr("class", "y axis");
-	xAxis.call(xAxisCall.scale(x));
-	yAxis.call(yAxisCall.scale(y));
-	// Adding line to chart
-	g.append("path")
-		.attr("class", "line")
-		.attr("fill", "none")
-		.attr("stroke", "grey")
-		.attr("stroke-with", "3px")
-		.attr("d", line(data))
-		;
 }
 
-var data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8},
-	{'fpr': 0.2, 'tpr': 0.2, 'threshold': 0.7},
-	{'fpr': 0.4, 'tpr': 0.5, 'threshold': 0.6},
-	{'fpr': 0.6, 'tpr': 0.6, 'threshold': 0.4},
-	{'fpr': 0.7, 'tpr': 0.7, 'threshold': 0.35},
-	{'fpr': 0.8, 'tpr': 0.8, 'threshold': 0.31},
-	{'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3},
-	{'fpr': 0.9, 'tpr': 1.0, 'threshold': 0.29},
-	{'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.28},
-	{'fpr': 0.95, 'tpr': 1.0, 'threshold': 0.25},
-	{'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1}
-	];
+var train_data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8},
+	{'fpr': 0.12, 'tpr': 0.2, 'threshold': 0.7}, {'fpr': 0.14, 'tpr': 0.5, 'threshold': 0.6},
+	{'fpr': 0.61, 'tpr': 0.6, 'threshold': 0.4}, {'fpr': 0.71, 'tpr': 0.7, 'threshold': 0.35},
+	{'fpr': 0.8, 'tpr': 0.8, 'threshold': 0.31}, {'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3}, {'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.29}, {'fpr': 0.92, 'tpr': 1.0, 'threshold': 0.28}, {'fpr': 0.97, 'tpr': 1.0, 'threshold': 0.25},
+	{'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1} ];
+var test_data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8}, {'fpr': 0.2, 'tpr': 0.2, 'threshold': 0.7},
+	{'fpr': 0.4, 'tpr': 0.5, 'threshold': 0.6}, {'fpr': 0.6, 'tpr': 0.6, 'threshold': 0.4},
+	{'fpr': 0.7, 'tpr': 0.7, 'threshold': 0.35}, {'fpr': 0.8, 'tpr': 0.8, 'threshold': 0.31},
+	{'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3}, {'fpr': 0.9, 'tpr': 1.0, 'threshold': 0.29},
+	{'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.28}, {'fpr': 0.95, 'tpr': 1.0, 'threshold': 0.25},
+	{'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1} ];
+	
+var data = [{'name': 'Training Data',
+			'color': 'steelblue',
+			'dataset': train_data
+			},
+			{'name': 'Test Data',
+				'color': 'red',
+				'dataset': test_data
+			}];
 create_chart(data);
+    
 </script>

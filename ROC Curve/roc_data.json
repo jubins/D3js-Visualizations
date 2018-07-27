@@ -1,0 +1,21 @@
+[
+  {
+    "name": "Training Data",
+    "show": true,
+    "color": "blue",
+	"maxThreshold": 1,
+    "history": [
+    {'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8},
+	{'fpr': 0.2, 'tpr': 0.2, 'threshold': 0.7},
+	{'fpr': 0.4, 'tpr': 0.5, 'threshold': 0.6},
+	{'fpr': 0.6, 'tpr': 0.6, 'threshold': 0.4},
+	{'fpr': 0.7, 'tpr': 0.7, 'threshold': 0.35},
+	{'fpr': 0.8, 'tpr': 0.8, 'threshold': 0.31},
+	{'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3},
+	{'fpr': 0.9, 'tpr': 1.0, 'threshold': 0.29},
+	{'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.28},
+	{'fpr': 0.95, 'tpr': 1.0, 'threshold': 0.25},
+	{'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1}
+    ]
+  }
+]
