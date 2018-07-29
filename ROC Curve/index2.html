@@ -1,18 +1,26 @@
 <div style="margin-top: 1%;">
-        <div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 650px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
+        <div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 600px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
             <div id="chart-area"></div>
         </div>
 </div>
 
+<style media="screen">
+.overlay {
+opacity: 0;
+fill: none;
+pointer-events: all;
+}
+</style>
+
 <script src="https://d3js.org/d3.v5.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.min.js"></script>
-<link rel="stylesheet" href="https://rawgithub.com/Caged/d3-tip/master/examples/example-styles.css">
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
 
 <script>
   function create_chart(data) {
     // Setting up the graph margin, scale and labels
-    var margin = {left: 60, right: 20, top: 20, bottom: 60};
+    var margin = {left: 80, right: 20, top: 20, bottom: 60};
     var height = 450 - margin.top - margin.bottom,
         width = 600 - margin.left - margin.right;
     var g = d3.select('#chart-area')
@@ -67,49 +75,111 @@
       // Add line to chart
       g.append("path")
           .attr("class", "line")
+          .attr("id", "trainLine")
           .attr("fill", "none")
           .attr("stroke", "purple")
           .attr("stroke-width", "4px")
           .attr("d", line(data));
 
+    /******************************** Legend Code ********************************/
+    var datasets = ['Training Set']
+    var active = true, newOpacity, rectNewOpacity;
+    var legend = g.append("g")
+                  .attr("transform", "translate(" + (width + 10) +"," + (height - 125) + ")");
+    datasets.forEach(function(dataset, i){
+        var legendRow = legend.append("g")
+            .attr("transform", "translate(0, " + (i * 20) + ")");
+        legendRow.append("rect")
+            .attr("id", 'legend_color')
+            .attr("width", 10)
+            .attr("height", 10)
+            .attr("fill", 'purple').on("click", function(){
+          		// Determine if current line is visible
+              var trainLine = d3.select("#trainLine");
+              if (!active){
+                active = true;
+                newOpacity = 1;
+                rectNewOpacity = 1;
+              }else{
+                active = false;
+                newOpacity = 0;
+                rectNewOpacity = 0.4;
+              };
+              // Hide or show the elements
+              d3.select('#trainLine').attr("opacity", newOpacity);
+              d3.select('#focus').attr('opacity', newOpacity);
+              d3.select('#legend_color').attr('opacity', rectNewOpacity);
+          		// Update whether or not the elements are active
+          		trainLine.active = false;
+              });
+
+        legendRow.append("text")
+            .attr("x", -10)
+            .attr("y", 10)
+            .attr('class', 'legend')
+            .attr("text-anchor", "end")
+            .style("text-transform", "capitalize").on("click", function(){
+          		// Determine if current line is visible
+              var trainLine = d3.select("#trainLine");
+              if (!active){
+                active = true;
+                newOpacity = 1;
+                rectNewOpacity = 1;
+              }else{
+                active = false;
+                newOpacity = 0;
+                rectNewOpacity = 0.4;
+              };
+              // Hide or show the elements
+              d3.select('#trainLine').attr("opacity", newOpacity);
+              d3.select('#focus').attr('opacity', newOpacity);
+              d3.select('#legend_color').attr('opacity', rectNewOpacity);
+          		// Update whether or not the elements are active
+          		trainLine.active = false;
+              })
+            .text(dataset);
+            ;
+        });
+    /******************************** Legend Code ********************************/
+
     /******************************** Tooltip Code ********************************/
     // For tooltip
     var bisectData = d3.bisector(function(d) { return d.fpr; }).left;
     var focus = g.append("g")
+        .attr('id', 'focus')
         .attr("class", "focus")
         .style("display", "none");
-
     focus.append("line")
         .attr("class", "x-hover-line hover-line")
-        .attr('stroke', '#6F257F')
+        .attr('stroke', '#2eaeaa')
         .attr('stroke-width', '1px')
         .attr('stroke-dasharray', [3,3])
         .attr("y1", 0)
         .attr("y2", height);
-
     focus.append("line")
         .attr("class", "y-hover-line hover-line")
-        .attr('stroke', '#6F257F')
+        .attr('stroke', '#2eaeaa')
         .attr('stroke-width', '1px')
         .attr('stroke-dasharray', [3,3])
         .attr("x1", 0)
         .attr("x2", width);
-
     focus.append("circle")
         .attr("r", 5)
         .attr('fill', 'purple')
-        .attr('stoke', 'blue')
-        .attr('stroke-width', 3)
-        ;
-
+        .attr('stoke', '#2eaeaa')
+        .attr('stroke-width', 3);
     focus.append("text")
+        .attr('id', 'toolTip')
+        .attr('height', 100)
+        .attr('width', 200)
+        .attr('fill', 'purple')
+        .attr('opacity', 0.7)
         .attr("x", 15)
-        .attr("dy", ".31em");
-
+        .attr("dy", ".31em")
+        ;
     g.append("rect")
         .attr("class", "overlay")
         .attr("width", width)
-        .attr("opacity", 0)
         .attr('pointer-events', 'all')
         .attr("height", height)
         .on("mouseover", function() { focus.style("display", null); })
@@ -123,15 +193,19 @@
             d1 = data[i],
             d = x0 - d0.fpr > d1.fpr - x0 ? d1 : d0;
 
-        // var tipText = "<strong>Life Expectancy:</strong> <span style='color:red'>" + d3.format(".2f")(d.fpr) + "</span><br>";
-        // tipText += "<strong>Life Expectancy:</strong> <span style='color:red'>" + d3.format(".2f")(d.tpr) + "</span><br>";
-        // tipText += "<strong>Life Expectancy:</strong> <span style='color:red'>" + d3.format(".2f")(d.threshold) + "</span><br>";
-        tipText = "FPR: " + d3.format(".2f")(d.fpr) + "\nTPR: " + d3.format(".2f")(d.tpr) + "\nThreshold: " + d3.format(".2f")(d.threshold)
+        // var tipText = "<strong>FPR:</strong> <span style='color:red'>" + d3.format(".2f")(d.fpr) + "</span><br>";
+        // tipText += "<strong>TPR:</strong> <span style='color:red'>" + d3.format(".2f")(d.tpr) + "</span><br>";
+        // tipText += "<strong>Threshold:</strong> <span style='color:red'>" + d3.format(".2f")(d.threshold) + "</span><br>";
+        var tipText = "FPR: " + d3.format(".2f")(d.fpr) + "\nTPR: " + d3.format(".2f")(d.tpr) + "\nThreshold: " + d3.format(".2f")(d.threshold)
         focus.attr("transform", "translate(" + x(d.fpr) + "," + y(d.tpr) + ")");
-        focus.select("text").text(tipText);
+        focus.select("#toolTip")
+              .text(tipText)
+              ;
         focus.select(".x-hover-line").attr("y2", height - y(d.tpr));
         focus.select(".y-hover-line").attr("x2", -x(d.fpr));
     }
+    /******************************** Tooltip Code ********************************/
+
 
   }
 
