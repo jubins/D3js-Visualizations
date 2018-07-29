@@ -1,4 +1,4 @@
-<!-- External Libraries --> 
+<!-- External Libraries -->
 <script src="jquery-3.3.1.min.js"></script>
 <script src="https://d3js.org/d3.v5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3-tip/0.9.1/d3-tip.js"></script>
@@ -19,7 +19,7 @@
 	</div>
 </div>
 
-<!-- D3.js --> 
+<!-- D3.js -->
 <script>
 function create_chart(data) {
 	// Setting up the graph margin, scale and labels
@@ -102,7 +102,7 @@ function create_chart(data) {
 				// update whether or not the elements are active
 				ele.active = active;
 			}).text(data[i].color);
-			
+
 		legendRow.append("text")
 			.attr("x", -10)
 			.attr("y", 10)
@@ -164,7 +164,7 @@ var test_data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8}, {'fpr': 0.2, 'tpr':
 	{'fpr': 0.85, 'tpr': 0.85, 'threshold': 0.3}, {'fpr': 0.9, 'tpr': 1.0, 'threshold': 0.29},
 	{'fpr': 0.91, 'tpr': 1.0, 'threshold': 0.28}, {'fpr': 0.95, 'tpr': 1.0, 'threshold': 0.25},
 	{'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1} ];
-	
+
 var data = [{'name': 'Training Data',
 			'color': 'steelblue',
 			'dataset': train_data
