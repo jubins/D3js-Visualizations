@@ -25,17 +25,14 @@
             <div id="selections" class="row">
                 <div class="col-md-4">
                     <div id="slider-div">
-                        <label>Date: <span id="dateLabel1">12/05/2013</span> - <span id="dateLabel2">31/10/2017</span></label>
-                        <div id="date-slider"></div>
+                        <label>Threshold: <span id="threshLabel1">0.0</span> - <span id="threshLabel2">1.0</span></label>
+                        <div id="thresh-slider"></div>
                     </div>
                 </div>
                 <div class="col-md-4">
-                    <select id="coin-select" class="form-control">
-                        <option selected value="bitcoin">Bitcoin</option>
-                        <option value="ethereum">Ethereum</option>
-                        <option value="bitcoin_cash">Bitcoin Cash</option>
-                        <option value="litecoin">Litecoin</option>
-                        <option value="ripple">Ripple</option>
+                    <select id="data-select" class="form-control">
+                        <option selected value="trainData">Training Data</option>
+                        <option value="testData">Test Data</option>
                     </select>
                 </div>
                 <div class="col-md-4">
@@ -72,9 +69,7 @@ var g = svg.append("g")
 
 var t = function(){ return d3.transition().duration(1000); }
 
-var parseTime = d3.timeParse("%d/%m/%Y");
-var formatTime = d3.timeFormat("%d/%m/%Y");
-var bisectDate = d3.bisector(function(d) { return d.date; }).left;
+var bisectData = d3.bisector(function(d) { return d.fpr; }).left;
 
 // Add the line for the first time
 g.append("path")
@@ -90,7 +85,7 @@ var xLabel = g.append("text")
     .attr("x", width / 2)
     .attr("font-size", "20px")
     .attr("text-anchor", "middle")
-    .text("Time");
+    .text("False Positive Rate (FPR)");
 var yLabel = g.append("text")
     .attr("class", "y axisLabel")
     .attr("transform", "rotate(-90)")
@@ -98,15 +93,15 @@ var yLabel = g.append("text")
     .attr("x", -170)
     .attr("font-size", "20px")
     .attr("text-anchor", "middle")
-    .text("Price (USD)")
+    .text("True Positive Rate (TPR)")
 
 // Scales
-var x = d3.scaleTime().range([0, width]);
+var x = d3.scaleLinear().range([0, width]);
 var y = d3.scaleLinear().range([height, 0]);
 
 // X-axis
 var xAxisCall = d3.axisBottom()
-    .ticks(4);
+    .ticks(10);
 var xAxis = g.append("g")
     .attr("class", "x axis")
     .attr("transform", "translate(0," + height +")");
@@ -117,69 +112,52 @@ var yAxis = g.append("g")
     .attr("class", "y axis");
 
 // Event listeners
-$("#coin-select").on("change", update)
-$("#var-select").on("change", update)
+$("#data-select").on("change", update)
 
 // Add jQuery UI slider
-$("#date-slider").slider({
+$("#thresh-slider").slider({
     range: true,
-    max: parseTime("31/10/2017").getTime(),
-    min: parseTime("12/5/2013").getTime(),
-    step: 86400000, // One day
-    values: [parseTime("12/5/2013").getTime(), parseTime("31/10/2017").getTime()],
+    max: 1.0,
+    min: 0.0,
+    step: 0.1,
+    values: [0.0, 1.0],
     slide: function(event, ui){
-        $("#dateLabel1").text(formatTime(new Date(ui.values[0])));
-        $("#dateLabel2").text(formatTime(new Date(ui.values[1])));
+        $("#dateLabel1").text(ui);
+        $("#dateLabel2").text(ui);
         update();
     }
 });
 
-d3.json("data/coins.json").then(function(data){
+d3.json("data/roc_data.json").then(function(data){
     // console.log(data);
 
     // Prepare and clean data
     filteredData = {};
-    for (var coin in data) {
-        if (!data.hasOwnProperty(coin)) {
+    for (var roc in data) {
+        if (!data.hasOwnProperty(roc)) {
             continue;
         }
-        filteredData[coin] = data[coin].filter(function(d){
-            return !(d["price_usd"] == null)
-        })
-        filteredData[coin].forEach(function(d){
-            d["price_usd"] = +d["price_usd"];
-            d["24h_vol"] = +d["24h_vol"];
-            d["market_cap"] = +d["market_cap"];
-            d["date"] = parseTime(d["date"])
-        });
     }
-
+    filteredData = data;
     // Run the visualization for the first time
     update();
 })
 
 function update() {
     // Filter data based on selections
-    var coin = $("#coin-select").val(),
-        yValue = $("#var-select").val(),
-        sliderValues = $("#date-slider").slider("values");
-    var dataTimeFiltered = filteredData[coin].filter(function(d){
-        return ((d.date >= sliderValues[0]) && (d.date <= sliderValues[1]))
+    var roc = $("#data-select").val(),
+        sliderValues = $("#thresh-slider").slider("values");
+    var dataFiltered = filteredData[roc].filter(function(d){
+        return ((d.threshold >= sliderValues[0]) && (d.threshold <= sliderValues[1]))
     });
-
     // Update scales
-    x.domain(d3.extent(dataTimeFiltered, function(d){ return d.date; }));
-    y.domain([d3.min(dataTimeFiltered, function(d){ return d[yValue]; }) / 1.005,
-        d3.max(dataTimeFiltered, function(d){ return d[yValue]; }) * 1.005]);
+    x.domain([0, d3.max(dataFiltered, function (d) { return d.fpr; })]);
+    y.domain([0, d3.max(dataFiltered, function (d) { return d.tpr; })]);
 
     // Fix for format values
-    var formatSi = d3.format(".2s");
+    var formatSi = d3.format(".2f");
     function formatAbbreviation(x) {
       var s = formatSi(x);
-      switch (s[s.length - 1]) {
-        case "G": return s.slice(0, -1) + "B";
-        case "k": return s.slice(0, -1) + "K";
-      }
       return s;
     }
 
@@ -221,30 +199,28 @@ function update() {
 
     function mousemove() {
         var x0 = x.invert(d3.mouse(this)[0]),
-            i = bisectDate(dataTimeFiltered, x0, 1),
-            d0 = dataTimeFiltered[i - 1],
-            d1 = dataTimeFiltered[i],
-            d = (d1 && d0) ? (x0 - d0.date > d1.date - x0 ? d1 : d0) : 0;
-        focus.attr("transform", "translate(" + x(d.date) + "," + y(d[yValue]) + ")");
-        focus.select("text").text(function() { return d3.format("$,")(d[yValue].toFixed(2)); });
-        focus.select(".x-hover-line").attr("y2", height - y(d[yValue]));
-        focus.select(".y-hover-line").attr("x2", -x(d.date));
+            i = bisectData(dataFiltered, x0, 1),
+            d0 = dataFiltered[i - 1],
+            d1 = dataFiltered[i],
+            d = (d1 && d0) ? (x0 - d0.fpr > d1.fpr - x0 ? d1 : d0) : 0;
+        // var tipText = "FPR: " + d3.format(".2f")(d.fpr) + "\nTPR: " + d3.format(".2f")(d.tpr) + "\nThreshold: " + d3.format(".2f")(d.threshold)
+        focus.attr("transform", "translate(" + x(d.fpr) + "," + y(d.tpr) + ")");
+        focus.select("text").text(d3.format(".2f")(d.threshold));
+        focus.select(".x-hover-line").attr("y2", height -  y(d.tpr));
+        focus.select(".y-hover-line").attr("x2", -x(d.fpr));
     }
 
     // Path generator
     line = d3.line()
-        .x(function(d){ return x(d.date); })
-        .y(function(d){ return y(d[yValue]); });
+        .x(function(d){ return x(d.fpr); })
+        .y(function(d){ return y(d.tpr); });
 
     // Update our line path
     g.select(".line")
         .transition(t)
-        .attr("d", line(dataTimeFiltered));
+        .attr("d", line(dataFiltered));
 
-    // Update y-axis label
-    var newText = (yValue == "price_usd") ? "Price (USD)" :
-        ((yValue == "market_cap") ?  "Market Capitalization (USD)" : "24 Hour Trading Volume (USD)")
-    yLabel.text(newText);
+    yLabel.text("True Positive Rate (TPR)");
 }
 </script>
 
