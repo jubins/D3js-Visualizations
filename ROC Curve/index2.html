@@ -1,28 +1,38 @@
-<div style="margin-top: 1%;">
-        <div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 600px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
-            <div id="chart-area"></div>
-        </div>
-</div>
+<!-- External JS Libraries -->
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="js/jquery.min.js"></script>
+<script src="js/bootstrap.min.js"></script>
+<script src="js/jquery-ui.min.js"></script>
+<script src="js/d3.min.js"></script>
 
+<!-- jQuery UI CSS and CDN -->
+<link rel="stylesheet" href="css/jquery-ui.min.css">
+<link rel="stylesheet" href="css/jquery-ui.structure.min.css">
+<link rel="stylesheet" href="css/jquery-ui.theme.min.css">
+<link rel="stylesheet" href="css/bootstrap.min.css">
 <style media="screen">
-.overlay {
-opacity: 0;
-fill: none;
-pointer-events: all;
-}
+  .overlay {
+    opacity: 0;
+    fill: none;
+    pointer-events: all;
+  }
 </style>
 
-<script src="https://d3js.org/d3.v5.min.js"></script>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+<div>
+    <div style="margin-top: 1%;">
+        <div class="container col-xs-12 col-sm-8 col-md-12 dashboard-chart-block text-center" style="height: 500px; width: 700px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
+            <div id="chart-area"></div>
+        </div>
+    </div>
+
+</div>
 
 <script>
   function create_chart(data) {
     // Setting up the graph margin, scale and labels
     var margin = {left: 80, right: 20, top: 20, bottom: 60};
     var height = 450 - margin.top - margin.bottom,
-        width = 600 - margin.left - margin.right;
+        width = 700 - margin.left - margin.right;
     var g = d3.select('#chart-area')
             	.append('svg')
             	.attr('width', width + margin.left + margin.right)
@@ -67,6 +77,13 @@ pointer-events: all;
                     .attr('font-size', '15px')
                     .attr('text-anchor', 'middle')
                     .text('True Positive Rate (TPR)');
+      var thresholdLabel = g.append("text")
+                          .attr('id', 'thresholdLabel')
+                          .attr("y", height -10)
+                          .attr("x", width - 40)
+                          .attr("font-size", "40px")
+                          .attr("fill", "lightgrey")
+                          .attr("text-anchor", "middle");
 
       // Line path generator
       var line = d3.line()
@@ -108,6 +125,7 @@ pointer-events: all;
               // Hide or show the elements
               d3.select('#trainLine').attr("opacity", newOpacity);
               d3.select('#focus').attr('opacity', newOpacity);
+              d3.select('#thresholdLabel').attr('opacity', newOpacity);
               d3.select('#legend_color').attr('opacity', rectNewOpacity);
           		// Update whether or not the elements are active
           		trainLine.active = false;
@@ -133,6 +151,7 @@ pointer-events: all;
               // Hide or show the elements
               d3.select('#trainLine').attr("opacity", newOpacity);
               d3.select('#focus').attr('opacity', newOpacity);
+              d3.select('#thresholdLabel').attr('opacity', newOpacity);
               d3.select('#legend_color').attr('opacity', rectNewOpacity);
           		// Update whether or not the elements are active
           		trainLine.active = false;
@@ -199,26 +218,24 @@ pointer-events: all;
         var tipText = "FPR: " + d3.format(".2f")(d.fpr) + "\nTPR: " + d3.format(".2f")(d.tpr) + "\nThreshold: " + d3.format(".2f")(d.threshold)
         focus.attr("transform", "translate(" + x(d.fpr) + "," + y(d.tpr) + ")");
         focus.select("#toolTip")
-              .text(tipText)
-              ;
+              .text(tipText);
         focus.select(".x-hover-line").attr("y2", height - y(d.tpr));
         focus.select(".y-hover-line").attr("x2", -x(d.fpr));
+        thresholdLabel.text( d3.format(".2f")(d.threshold));
     }
     /******************************** Tooltip Code ********************************/
-
-
   }
 
-  var data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 0.8},
-              {'fpr': 0.2, 'tpr': 0.2, 'threshold': 0.7},
-              {'fpr': 0.35, 'tpr': 0.5, 'threshold': 0.6},
-              {'fpr': 0.45, 'tpr': 0.7, 'threshold': 0.4},
-              {'fpr': 0.55, 'tpr': 0.8, 'threshold': 0.35},
-              {'fpr': 0.55, 'tpr': 0.85, 'threshold': 0.31},
-              {'fpr': 0.65, 'tpr': 0.9, 'threshold': 0.3},
-              {'fpr': 0.65, 'tpr': 0.95, 'threshold': 0.29},
-              {'fpr': 0.75, 'tpr': 0.96, 'threshold': 0.28},
-              {'fpr': 0.85, 'tpr': 0.97, 'threshold': 0.25},
+  var data = [{'fpr': 0.0, 'tpr': 0.0, 'threshold': 1.0},
+              {'fpr': 0.2, 'tpr': 0.2, 'threshold': 0.8},
+              {'fpr': 0.35, 'tpr': 0.5, 'threshold': 0.9},
+              {'fpr': 0.45, 'tpr': 0.7, 'threshold': 0.8},
+              {'fpr': 0.55, 'tpr': 0.8, 'threshold': 0.7},
+              {'fpr': 0.55, 'tpr': 0.85, 'threshold': 0.6},
+              {'fpr': 0.65, 'tpr': 0.9, 'threshold': 0.5},
+              {'fpr': 0.65, 'tpr': 0.95, 'threshold': 0.4},
+              {'fpr': 0.75, 'tpr': 0.96, 'threshold': 0.3},
+              {'fpr': 0.85, 'tpr': 0.97, 'threshold': 0.2},
               {'fpr': 1.0, 'tpr': 1.0, 'threshold': 0.1}
             ];
 
