@@ -163,6 +163,10 @@
 
     /******************************** Tooltip Code ********************************/
     // For tooltip
+    //Clear old tooltips
+    d3.select('.overlay').remove();
+    d3.select('.focus').remove();
+
     var bisectData = d3.bisector(function(d) { return d.fpr; }).left;
     var focus = g.append("g")
         .attr('id', 'focus')
