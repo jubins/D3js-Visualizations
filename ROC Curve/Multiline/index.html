@@ -49,6 +49,13 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
         d.Threshold1 = +d.Threshold1;
         d.Threshold2 = +d.Threshold2;
     });
+    var chart = makeLineChart(data, 'FPR', {
+        'GM_Test1': {column: 'TPR1'},
+        'GM_Test_2': {column: 'TPR2'},
+    }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
+    chart.bind("#chart-line1");
+    chart.render();
+
     // Add jQuery UI slider
     $("#thresh-slider1").slider({
         range: true,
@@ -57,9 +64,12 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
         step: 0.0001,
         values: [0.0, 1.0],
         slide: function (event, ui) {
+            d3.select('#chart-line1').remove();
             $("#threshLabel1").text(d3.format(".4f")(ui.values[0]));
             $("#threshLabel2").text(d3.format(".4f")(ui.values[1]));
-            update(data);
+            var chart = update(data);
+            chart.bind("#chart-line1");
+            chart.render();
         }
     });
     // Run the visualization for the first time
@@ -73,12 +83,8 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
           'GM_Test1': {column: 'TPR1'},
           'GM_Test_2': {column: 'TPR2'},
       }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
-      chart.bind("#chart-line1");
-      chart.render();
       return chart;
     }
-
-    var chart = update(data);
 
 });
 
