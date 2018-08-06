@@ -15,35 +15,69 @@
 </head>
 <body>
 
-<div id="selections" class="container row" style="padding-top: 10px">
-    <div class="chart-wrapper col-xs-8 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 650px; width: 750px; border-top: #2eaeea 30px solid;">
-      <div id="roc_chart"> </div>
-      <div id="slider-div">
+<div id="selections" class="container row col-md-12" style="padding: 3px;">
+  <div class="col-xs-8 col-sm-8 col-md-8">
+    <div class="chart-wrapper dashboard-chart-block text-center" style="height: 500px; width: 750px; border-top: #2eaeea 30px solid;">
+      <br>
+      <div id="roc_chart" class="col-md-12"> </div>
+      <div id="slider-div" class="col-md-12">
           <label>Threshold: <span id="threshLabel1" value="0.0">0.0</span> - <span id="threshLabel2" value="1.0">1.0</span></label>
           <div id="thresh-slider1"></div>
       </div>
     </div>
-
-    <div id="data_table" class="col-md-4">
+  </div>
+  <div id="dynamic_data_table" class="col-md-4">
       <table class="table table-responsive table-hover table-bordered">
           <thead>
           </thead>
           <tbody>
           <tr>
-              <td>Area Under the ROC Curve (AUC)</td>
-              <td>{{ auc|floatformat:4 }}</td>
+              <td>Threshold (θ)</td>
+              <td id="threshold">0.0000</td>
           </tr>
           <tr>
-              <td>Youden's Index (J) / Best Cut-off</td>
-              <td id="maxJ"></td>
+              <td>True Positive Rate / Recall</td>
+              <td id="tpr">0.0000</td>
           </tr>
           <tr>
-              <td>Optimum Threshold (θ)</td>
-              <td id="maxThresh"></td>
+              <td>False Positive Rate / (1 - TNR)</td>
+              <td id="fpr">0.0000</td>
+          </tr>
+          <tr>
+              <td>True Negative Rate / Specificity</td>
+              <td id="tnr">0.0000</td>
+          </tr>
+          <tr>
+              <td>False Negative Rate / (1 - TPR)</td>
+              <td id="fnr">0.0000</td>
+          </tr>
+          <tr>
+              <td>Partial Area Under the ROC Curve (AUC)</td>
+              <td id="auc">0.0000</td>
           </tr>
           </tbody>
-        </table>
-    </div>
+      </table>
+  </div>
+  <div id="static_data_table" class="col-xs-4 col-sm-4 col-md-4">
+    <table class="table table-responsive table-hover table-bordered">
+        <thead>
+        </thead>
+        <tbody>
+        <tr>
+            <td>Area Under the ROC Curve (AUC)</td>
+            <td>{{ auc|floatformat:4 }}</td>
+        </tr>
+        <tr>
+            <td>Youden's Index (J) / Best Cut-off</td>
+            <td id="maxJ"></td>
+        </tr>
+        <tr>
+            <td>Optimum Threshold (θ)</td>
+            <td id="maxThresh"></td>
+        </tr>
+        </tbody>
+      </table>
+  </div>
 
 </div>
 
@@ -67,32 +101,33 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
 */
 d3.csv('data/multiline_roc.csv', function(error, data) {
   data.forEach(function (d) {
-      d.FPR = +d.FPR;
-      d.TPR1 = +d.TPR1;
-      d.TPR2 = +d.TPR2;
-      d.Threshold1 = +d.Threshold1;
-      d.Threshold2 = +d.Threshold2;
+      d.fpr = getFloat(d.fpr);
+      d.tpr_GM_Test_1 = getFloat(d.tpr_GM_Test_1);
+      d.tpr_GM_Test_2 = getFloat(d.tpr_GM_Test_2);
+      d.thresh_GM_Test_1 = getFloat(d.thresh_GM_Test_1);
+      d.thresh_GM_Test_2 = getFloat(d.thresh_GM_Test_2);
   });
-  var chart = makeLineChart(data, 'FPR', {
-      'GM_Test1': {column: 'TPR1'},
-      'GM_Test_2': {column: 'TPR2'},
+console.log(data);
+  var chart = makeLineChart(data, 'fpr', {
+      'GM_Test_1': {column: 'tpr_GM_Test_1'},
+      'GM_Test_2': {column: 'tpr_GM_Test_2'},
   }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
-
-  // Add jQuery UI slider
-  $("#thresh-slider1").slider({
-      range: true,
-      max: 1.0,
-      min: 0.0,
-      step: 0.0001,
-      values: [0.0, 1.0],
-      slide: function (event, ui) {
-          $("#threshLabel1").text(d3.format(".4f")(ui.values[0]));
-          $("#threshLabel2").text(d3.format(".4f")(ui.values[1]));
-          update(data);
-      }
-  });
   chart.bind("#roc_chart");
   chart.render();
+  });
+  // // Add jQuery UI slider
+  // $("#thresh-slider1").slider({
+  //     range: true,
+  //     max: 1.0,
+  //     min: 0.0,
+  //     step: 0.0001,
+  //     values: [0.0, 1.0],
+  //     slide: function (event, ui) {
+  //         $("#threshLabel1").text(d3.format(".4f")(ui.values[0]));
+  //         $("#threshLabel2").text(d3.format(".4f")(ui.values[1]));
+  //         //update(data);
+  //     }
+
   // d3.select("#barChart").select("svg").remove();
   // var svg = d3.select('#barChart')
   //    .append('svg')
@@ -101,20 +136,23 @@ d3.csv('data/multiline_roc.csv', function(error, data) {
   //    .append('g')
   //    .attr('transform', 'translate(' + margins.left + ',' + margins.top + ')');
   // Run the visualization for the first time
-  function update(filteredData){
-    var sliderValues = $("#thresh-slider1").slider("values");
-    var dataFiltered = filteredData.filter(function (d) {
-        return ((d.Threshold1 >= sliderValues[0]) && (d.Threshold1 <= sliderValues[1]))
-    });
-    console.log(dataFiltered);
-    var chart = makeLineChart(dataFiltered, 'FPR', {
-        'GM_Test1': {column: 'TPR1'},
-        'GM_Test_2': {column: 'TPR2'},
-    }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
-    return chart;
-  }
-});
-
+//   function update(filteredData){
+//     var sliderValues = $("#thresh-slider1").slider("values");
+//     var dataFiltered = filteredData.filter(function (d) {
+//         return ((d.Threshold1 >= sliderValues[0]) && (d.Threshold1 <= sliderValues[1]))
+//     });
+//     console.log(dataFiltered);
+//     var chart = makeLineChart(dataFiltered, 'FPR', {
+//         'GM_Test1': {column: 'TPR1'},
+//         'GM_Test_2': {column: 'TPR2'},
+//     }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
+//     return chart;
+//   }
+function getFloat(n) {
+            n = parseFloat(n);
+            n = isNaN(n) ? 0.0 : n;
+            return n
+        }
 function makeLineChart(dataset, xName, yObjs, axisLables) {
     var chartObj = {};
     var color = d3.scale.category10();
@@ -126,9 +164,9 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
      {y1:{column:'',name:'name',color:'color'},y2}
      */
     chartObj.data = dataset;
-    chartObj.margin = {top: 40, right: 50, bottom: 40, left: 90};
+    chartObj.margin = {top: 60, right: 50, bottom: 40, left: 90};
     chartObj.width = 700 - chartObj.margin.left - chartObj.margin.right;
-    chartObj.height = 600 - chartObj.margin.top - chartObj.margin.bottom;
+    chartObj.height = 500 - chartObj.margin.top - chartObj.margin.bottom;
 
 // So we can pass the x and y as strings when creating the function
     chartObj.xFunct = function(d){return d[xName]};
@@ -255,8 +293,8 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
             yObjs[y].tooltip.append("text").attr("x", 9).attr("dy", ".35em");
         }
 
-        // FPR label
-        focus.append("text").attr("class", "focus hover").attr("x", 9).attr("y", 7);
+        // X label
+        focus.append("text").attr("class", "focus hover").attr("x", chartObj.width-90).attr("y", chartObj.height-20).style({"font-size": "15px", "fill":"grey"});
         // Focus line
         focus.append("line").attr("class", "focus line").attr("y1", 0).attr("y2", chartObj.height);
 
@@ -322,6 +360,13 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
             focus.select(".focus.line").attr("transform", "translate(" + chartObj.xScale(chartObj.xFunct(d)) + ")").attr("y1", minY);
             console.log(d);
             focus.select(".focus.hover").text("AUC: " + chartObj.xFormatter(chartObj.xFunct(d)));
+            $("#fpr").text(d3.format(".4f")(getFloat(d.fpr)));
+            $("#tpr").text(d3.format(".4f")(getFloat(d.tpr)));
+            $("#fnr").text(d3.format(".4f")(getFloat(d.fnr)));
+            $("#tnr").text(d3.format(".4f")(getFloat(d.tnr)));
+            $("#threshold").text(d3.format(".4f")(getFloat(d.threshold)));
+            $("#auc").text(d3.format(".4f")(getFloat(d.auc)));
+            $("#j").text(d3.format(".4f")(getFloat(d.j)));
         }
 
     };
@@ -391,7 +436,7 @@ stroke-width: 5px;
   padding: 10px 40px;
 }
 .chart-wrapper .legend > div {
-  margin: -500px 25px 10px 0px;
+  margin: -393px 25px 10px 0px;
   flex-grow: 0;
   cursor: pointer;
 }
