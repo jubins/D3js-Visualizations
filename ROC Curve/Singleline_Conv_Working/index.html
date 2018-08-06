@@ -1,0 +1,420 @@
+{% extends "dashboard/_dashboard_base.html"%}
+{% block title %}Metrics Interactions{% endblock %}
+{% block head %}
+    <!-- External JS libraries -->
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+    <!-- jQuery UI CSS -->
+    <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <!-- Custom CSS -->
+    <style>
+        #roc-chart-area svg {
+            margin-left: auto;
+            margin-right: auto;
+            display: block;
+        }
+        .axis {
+            font: 12px sans-serif;
+        }
+        .axis path,
+        .axis line {
+            fill: none;
+            stroke: #D4D8DA;
+            stroke-width: 2px;
+            shape-rendering: crispEdges;
+        }
+        .overlay {
+            fill: none;
+            pointer-events: all;
+        }
+        .focus circle {
+            fill: #32bdff;
+            stroke: #2EAEEA;
+            stroke-width: 2px;
+        }
+        .hover-line {
+            stroke: #777;
+            stroke-width: 1px;
+            stroke-dasharray: 3,3;
+        }
+        #selections .col-md-4 {
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+        .tooltip {
+            margin: 0;
+            font-size: 13px;
+            line-height: 15px;
+            position: absolute;
+            opacity: 0.8;
+            width: 130px;
+            height: auto;
+            padding: 10px;
+            background-color: white;
+            -webkit-border-radius: 10px;
+            -moz-border-radius: 10px;
+            border-radius: 10px;
+            -webkit-box-shadow: 4px 4px 10px rgba(0, 0, 0, 0.4);
+            -mox-box-shadow: 4px 4px 4px 10px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+        }
+    </style>
+
+{% endblock %}
+
+{% block content %}
+    <h2><img src="/media/img/eval_metric_interactions.png" class="header-icon" alt="custom classifier" />Metric Interactions: {{ classifier.name }}</h2>
+    {% if messages %}
+        <div id='errors' class="alert alert-danger alert-dismissible" role="alert" hidden>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>{% for message in messages %}{% if message.level == DEFAULT_MESSAGE_LEVELS.SUCCESS %}
+            <script>alert("{{ message }}");</script>
+            {% else %}{{ message }}<br /><script>$("#errors").attr('hidden', false);</script>{% endif %}
+        {% endfor %}</div>
+    {% endif %}
+
+    <div style="margin-top: 1%;">
+        <div class="container col-xs-12 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 500px; width: 750px; margin-top:0; padding:20px 10px; border-top: #2eaeea 30px solid;">
+            <div id="roc-chart-area"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="col-md-4" style="padding-bottom: 10px">
+            <select id="data-select" class="form-control">
+                <option selected value="testData">Test Data</option>
+                <option value="trainData">Training Data</option>
+            </select>
+        </div>
+        <div id="data_table" class="col-md-4">
+            <table class="table table-responsive table-hover table-bordered">
+                <thead>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Area Under the ROC Curve (AUC)</td>
+                    <td>{{ auc|floatformat:4 }}</td>
+                </tr>
+                <tr>
+                    <td>Youden's Index (J) / Best Cut-off</td>
+                    <td id="maxJ"></td>
+                </tr>
+                <tr>
+                    <td>Optimum Threshold (θ)</td>
+                    <td id="maxThresh"></td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="selections" class="row" style="padding-top: 10px">
+            <div class="col-md-4">
+                <div id="slider-div">
+                    <label>Threshold: <span id="threshLabel1" value="0.0">0.0</span> - <span id="threshLabel2" value="1.0">1.0</span></label>
+                    <div id="thresh-slider"></div>
+                </div>
+            </div>
+            <div id="dynamic_data_table" class="col-md-4">
+                <table class="table table-responsive table-hover table-bordered">
+                    <thead>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>Threshold (θ)</td>
+                        <td id="threshold">0.0000</td>
+                    </tr>
+                    <tr>
+                        <td>True Positive Rate / Recall</td>
+                        <td id="tpr">0.0000</td>
+                    </tr>
+                    <tr>
+                        <td>False Positive Rate / (1 - TNR)</td>
+                        <td id="fpr">0.0000</td>
+                    </tr>
+                    <tr>
+                        <td>True Negative Rate / Specificity</td>
+                        <td id="tnr">0.0000</td>
+                    </tr>
+                    <tr>
+                        <td>False Negative Rate / (1 - TPR)</td>
+                        <td id="fnr">0.0000</td>
+                    </tr>
+                    <tr>
+                        <td>Partial Area Under the ROC Curve (AUC)</td>
+                        <td id="auc">0.0000</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load, Clean and Parse the data
+        function getFloat(n) {
+            n = parseFloat(n);
+            n = isNaN(n) ? 0.0 : n;
+            return n
+        }
+        var fprs = {{ fpr }},
+            tprs = {{ tpr }},
+            thresholds = {{ threshold }},
+            testData = [],
+            maxJ = 0,
+            maxThresh = 0;
+        for (var i = 0; i < thresholds.length; i++) {
+            var thresh = getFloat(thresholds[i]),
+                fpr = getFloat(fprs[i]),
+                tpr = getFloat(tprs[i]),
+                fnr = 1 - tpr,
+                tnr = 1 - fpr,
+                auc = (0.5 - (fpr / 2) + (tpr / 2)),
+                j = tpr + tnr - 1;
+            if (j > maxJ){ maxJ = j; maxThresh = thresh}
+            testData.push({"fpr": fpr, "tpr": tpr, "threshold": thresh, "auc": auc, "fnr": fnr, "tnr": tnr, "j": j})
+        }
+        $("#maxJ").text(d3.format(".4f")(getFloat(maxJ)));
+        $("#maxThresh").text(d3.format(".4f")(getFloat(maxThresh)));
+
+        // Prepare data
+        var data = {
+            "testData": testData,
+            "trainData": [
+                {"fpr": 0.0, "tpr": 0.0, "threshold": 1.0, "auc": 0.0, "tp": 0, "fp": 6, "tn": 0, "fn": 5},
+                {"fpr": 0.2, "tpr": 0.2, "threshold": 0.9, "auc": 0.15, "tp": 1, "fp": 5, "tn": 0, "fn": 5},
+                {"fpr": 0.4, "tpr": 0.5, "threshold": 0.8, "auc": 0.16, "tp": 1, "fp": 5, "tn": 0, "fn": 5},
+                {"fpr": 0.6, "tpr": 0.6, "threshold": 0.7, "auc": 0.26, "tp": 2, "fp": 4, "tn": 1, "fn": 4},
+                {"fpr": 0.7, "tpr": 0.7, "threshold": 0.6, "auc": 0.27, "tp": 2, "fp": 4, "tn": 1, "fn": 4},
+                {"fpr": 0.8, "tpr": 0.8, "threshold": 0.5, "auc": 0.36, "tp": 2, "fp": 4, "tn": 2, "fn": 3},
+                {"fpr": 0.85, "tpr": 0.85, "threshold": 0.4, "auc": 0.57, "tp": 3, "fp": 3, "tn": 2, "fn": 3},
+                {"fpr": 0.9, "tpr": 1.0, "threshold": 0.3, "auc": 0.77, "tp": 3, "fp": 3, "tn": 2, "fn": 3},
+                {"fpr": 0.91, "tpr": 1.0, "threshold": 0.2, "auc": 0.86, "tp": 4, "fp": 2, "tn": 3, "fn": 2},
+                {"fpr": 0.95, "tpr": 1.0, "threshold": 0.1, "auc": 0.95, "tp": 5, "fp": 1, "tn": 4, "fn": 1},
+                {"fpr": 1.0, "tpr": 1.0, "threshold": 0.0, "auc": 1.0, "tp": 6, "fp": 0, "tn": 5, "fn": 0}
+            ]};
+        roc_curve(data, chart_id="#roc-chart-area");
+
+        function roc_curve(data, chart_id) {
+            var filteredData = data;
+            var margin = {left: 80, right: 130, top: 30, bottom: 130},
+                height = 500 - margin.top - margin.bottom,
+                width = 800 - margin.left - margin.right;
+            var svg = d3.select(chart_id)
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom);
+            var g = svg.append("g")
+                .attr("transform", "translate(" + margin.left + ", " + margin.top + ")");
+
+            var t = function () {
+                return d3.transition().duration(1000);
+            };
+
+            //Add a 45° line
+            var guessLineColor = "#B30000";
+            g.append("line")
+                .attr("x1", 0)
+                .attr("x2", width)
+                .attr("y1", height)
+                .attr("y2", 0)
+                .attr("fill", "none")
+                .attr("stroke", guessLineColor)
+                .attr("stroke-width", "2px")
+                .style("stroke-dasharray", ("3, 3"));
+
+            // Add the line for the first time
+            var rocLineColor = "#2EAEEA";
+            g.append("path")
+                .attr("id", "curve")
+                .attr("class", "line")
+                .attr("fill", "none")
+                .attr("stroke", rocLineColor)
+                .attr("stroke-width", "3px");
+
+            // Labels
+            var xLabel = g.append("text")
+                .attr("class", "x axisLabel")
+                .attr("y", height + 50)
+                .attr("x", width / 2)
+                .attr("font-size", "18px")
+                .attr("text-anchor", "middle")
+                .text("False Positive Rate (1 - Specificity)");
+            var yLabel = g.append("text")
+                .attr("class", "y axisLabel")
+                .attr("transform", "rotate(-90)")
+                .attr("y", -60)
+                .attr("x", -170)
+                .attr("font-size", "18px")
+                .attr("text-anchor", "middle")
+                .text("True Positive Rate (Sensitivity)");
+            var aucLabel = g.append("text")
+                .attr('id', 'aucLabel')
+                .attr("y", height - 10)
+                .attr("x", width - 40)
+                .attr("font-size", "15px")
+                .attr("fill", "grey")
+                .attr("text-anchor", "middle");
+
+            // Scales
+            var x = d3.scaleLinear().range([0, width]);
+            var y = d3.scaleLinear().range([height, 0]);
+
+            // X-axis
+            var xAxisCall = d3.axisBottom(x).ticks(10);
+            var xAxis = g.append("g")
+                .attr("class", "x axis")
+                .attr("transform", "translate(0," + height + ")");
+
+            // Y-axis
+            var yAxisCall = d3.axisLeft(y).ticks(10);
+            var yAxis = g.append("g")
+                .attr("class", "y axis");
+
+            // Event listeners
+            $("#data-select").on("change", update);
+
+            // Add jQuery UI slider
+            $("#thresh-slider").slider({
+                range: true,
+                max: 1.0,
+                min: 0.0,
+                step: 0.0001,
+                values: [0.0, 1.0],
+                slide: function (event, ui) {
+                    $("#threshLabel1").text(d3.format(".4f")(ui.values[0]));
+                    $("#threshLabel2").text(d3.format(".4f")(ui.values[1]));
+                    update();
+                }
+            });
+
+            // Run the visualization for the first time
+            update();
+
+            // Legend code
+            function addROCLegend(legendId, legendText, lineColor, pushLeftPx) {
+                var legend = g.append("g")
+                    .attr("id", legendId)
+                    .attr("transform", "translate(" + (width - 600 - pushLeftPx) + "," + (height - 360) + ")");
+                var legendRow = legend.append("g").attr("transform", function (d, i) {
+                    return "translate(" + width + "," + (i * 20) + ")";
+                });
+                legendRow.append("rect")
+                    .attr("width", 10)
+                    .attr("height", 10)
+                    .attr("fill", lineColor);
+                legendRow.append('text')
+                    .attr("x", 15)
+                    .attr("y", 10)
+                    .attr('class', 'legend')
+                    .attr("text-anchor", "start")
+                    .text(legendText);
+            }
+
+            function update() {
+                // Filter data based on selections
+                var roc = $("#data-select").val(),
+                    sliderValues = $("#thresh-slider").slider("values");
+                var dataFiltered = filteredData[roc].filter(function (d) {
+                    d3.select(".tooltip").remove(); // Clear old tooltip
+                    return ((d.threshold >= sliderValues[0]) && (d.threshold <= sliderValues[1]))
+                });
+                // Add Legend
+                d3.select('#rocLine').remove();
+                d3.select('#guessLine').remove();
+                var lineLegend = $("#data-select :selected");
+                addROCLegend(legendId = 'rocLine', legendText = lineLegend.text(), legendColor = rocLineColor, pushLeftPx = 70);
+                addROCLegend(legendId = 'guessLine', legendText = 'Random Guess', legendColor = guessLineColor, pushLeftPx = 200);
+                // Update scales
+                x.domain([0, d3.max(dataFiltered, function (d) { return d.fpr; })]);
+                y.domain([0, d3.max(dataFiltered, function (d) { return d.tpr;})]);
+
+                // Fix for format values
+                function formatAbbreviation(x) {return d3.format(".3f")(x); }
+                // Update axes
+                xAxisCall.scale(x);
+                xAxis.transition(t()).call(xAxisCall.tickFormat(formatAbbreviation));
+                yAxisCall.scale(y);
+                yAxis.transition(t()).call(yAxisCall.tickFormat(formatAbbreviation));
+
+                // Path generator
+                line = d3.line()
+                    .x(function (d) {return x(d.fpr); })
+                    .y(function (d) {return y(d.tpr); });
+                // Update our line path
+                g.select("#curve")
+                    .transition(t)
+                    .attr("d", line(dataFiltered));
+                yLabel.text("True Positive Rate (Sensitivity)");
+
+                // Tooltip code
+                // Clear old tooltips
+                var bisectData = d3.bisector(function (d) { return d.fpr; }).left;
+                d3.select(".focus").remove();
+                d3.select(".overlay").remove();
+
+                // Create tooltip
+                var focus = g.append("g")
+                    .attr("class", "focus")
+                    .style("display", "none");
+                focus.append("line")
+                    .attr("class", "x-hover-line hover-line")
+                    .attr("y1", 0)
+                    .attr("y2", height);
+                focus.append("line")
+                    .attr("class", "y-hover-line hover-line")
+                    .attr("x1", 0)
+                    .attr("x2", width);
+                focus.append("circle")
+                    .attr("r", 5);
+                svg.append("rect")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+                    .attr("class", "overlay")
+                    .attr("opacity", 0)
+                    .attr("width", width)
+                    .attr("height", height)
+                    .on("mousemove", mousemove)
+                    .on("mouseout", mouseout)
+                    .on("mouseover", function () {focus.style("display", null); });
+                function mouseout() {
+                    focus.style("display", null);
+                    d3.select(".tooltip").style("opacity", 0);
+                }
+                function mousemove() {
+                    var x0 = x.invert(d3.mouse(this)[0]),
+                        i = bisectData(dataFiltered, x0, 1),
+                        d0 = dataFiltered[i - 1],
+                        d1 = dataFiltered[i],
+                        d = (d1 && d0) ? (x0 - d0.fpr > d1.fpr - x0 ? d1 : d0) : 0;
+                    var tipText = "<strong>FPR:</strong> <span style='color:red'>" + d3.format(".4f")(getFloat(d.fpr)) + "</span><br>";
+                    tipText += "<strong>TPR:</strong> <span style='color:red'>" + d3.format(".4f")(getFloat(d.tpr)) + "</span><br>";
+                    tipText += "<strong>Threshold:</strong> <span style='color:red'>" + d3.format(".4f")(getFloat(d.threshold)) + "</span><br>";
+
+                    focus.attr("transform", "translate(" + x(getFloat(d.fpr)) + "," + y(getFloat(d.tpr)) + ")");
+                    // Adjust toolTip position based on mouse position
+                    addTooltipDiv().html(tipText)
+                        .style("left", (d3.event.pageX - width + 250) + "px")
+                        .style("top", (d3.event.pageY - height + 30) + "px");
+                    focus.select(".x-hover-line").attr("y2", height - y(getFloat(d.tpr)));
+                    focus.select(".y-hover-line").attr("x2", -x(getFloat(d.fpr)));
+                    aucLabel.text("AUC: " + d3.format(".4f")(getFloat(d.auc)));
+                    $("#fpr").text(d3.format(".4f")(getFloat(d.fpr)));
+                    $("#tpr").text(d3.format(".4f")(getFloat(d.tpr)));
+                    $("#fnr").text(d3.format(".4f")(getFloat(d.fnr)));
+                    $("#tnr").text(d3.format(".4f")(getFloat(d.tnr)));
+                    $("#threshold").text(d3.format(".4f")(getFloat(d.threshold)));
+                    $("#auc").text(d3.format(".4f")(getFloat(d.auc)));
+                    $("#j").text(d3.format(".4f")(getFloat(d.j)));
+                }
+                //Beautifying toolTip
+                var addTooltipDiv = function () {
+                    d3.select(".tooltip").remove();
+                    var tooltipDiv = d3.select(chart_id).append("div").attr("class", "tooltip");
+                    return tooltipDiv;
+                };
+            }
+        }
+
+    </script>
+{% endblock %}
