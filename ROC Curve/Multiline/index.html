@@ -7,23 +7,44 @@
     <script src="http://d3js.org/d3.v3.js" charset="utf-8"></script>
     <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
     <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
-    <!-- jQuery UI CSS -->
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+    <!-- External CSS -->
     <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
     <!--<script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>-->
 </head>
 <body>
 
-<div id="selections" class="row" style="padding-top: 10px">
-  <div class="col-md-4">
-    <div class="chart-wrapper" id="chart_area">
-      <div id="chart_line1"> </div>
+<div id="selections" class="container row" style="padding-top: 10px">
+    <div class="chart-wrapper col-xs-8 col-sm-8 col-md-8 dashboard-chart-block text-center" style="height: 650px; width: 750px; border-top: #2eaeea 30px solid;">
+      <div id="roc_chart"> </div>
+      <div id="slider-div">
+          <label>Threshold: <span id="threshLabel1" value="0.0">0.0</span> - <span id="threshLabel2" value="1.0">1.0</span></label>
+          <div id="thresh-slider1"></div>
+      </div>
     </div>
 
-    <div id="slider-div">
-        <label>Threshold: <span id="threshLabel1" value="0.0">0.0</span> - <span id="threshLabel2" value="1.0">1.0</span></label>
-        <div id="thresh-slider1"></div>
+    <div id="data_table" class="col-md-4">
+      <table class="table table-responsive table-hover table-bordered">
+          <thead>
+          </thead>
+          <tbody>
+          <tr>
+              <td>Area Under the ROC Curve (AUC)</td>
+              <td>{{ auc|floatformat:4 }}</td>
+          </tr>
+          <tr>
+              <td>Youden's Index (J) / Best Cut-off</td>
+              <td id="maxJ"></td>
+          </tr>
+          <tr>
+              <td>Optimum Threshold (θ)</td>
+              <td id="maxThresh"></td>
+          </tr>
+          </tbody>
+        </table>
     </div>
-  </div>
+
 </div>
 
 <script type="text/javascript">
@@ -44,54 +65,54 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
 1.0,1.0,0.0,1.0,0.0
 
 */
-    d3.csv('data/multiline_roc.csv', function(error, data) {
-    data.forEach(function (d) {
-        d.FPR = +d.FPR;
-        d.TPR1 = +d.TPR1;
-        d.TPR2 = +d.TPR2;
-        d.Threshold1 = +d.Threshold1;
-        d.Threshold2 = +d.Threshold2;
+d3.csv('data/multiline_roc.csv', function(error, data) {
+  data.forEach(function (d) {
+      d.FPR = +d.FPR;
+      d.TPR1 = +d.TPR1;
+      d.TPR2 = +d.TPR2;
+      d.Threshold1 = +d.Threshold1;
+      d.Threshold2 = +d.Threshold2;
+  });
+  var chart = makeLineChart(data, 'FPR', {
+      'GM_Test1': {column: 'TPR1'},
+      'GM_Test_2': {column: 'TPR2'},
+  }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
+
+  // Add jQuery UI slider
+  $("#thresh-slider1").slider({
+      range: true,
+      max: 1.0,
+      min: 0.0,
+      step: 0.0001,
+      values: [0.0, 1.0],
+      slide: function (event, ui) {
+          $("#threshLabel1").text(d3.format(".4f")(ui.values[0]));
+          $("#threshLabel2").text(d3.format(".4f")(ui.values[1]));
+          update(data);
+      }
+  });
+  chart.bind("#roc_chart");
+  chart.render();
+  // d3.select("#barChart").select("svg").remove();
+  // var svg = d3.select('#barChart')
+  //    .append('svg')
+  //    .attr('width', width + margins.left + margins.right)
+  //    .attr('height', height + margins.top + margins.bottom)
+  //    .append('g')
+  //    .attr('transform', 'translate(' + margins.left + ',' + margins.top + ')');
+  // Run the visualization for the first time
+  function update(filteredData){
+    var sliderValues = $("#thresh-slider1").slider("values");
+    var dataFiltered = filteredData.filter(function (d) {
+        return ((d.Threshold1 >= sliderValues[0]) && (d.Threshold1 <= sliderValues[1]))
     });
-    var chart = makeLineChart(data, 'FPR', {
+    console.log(dataFiltered);
+    var chart = makeLineChart(dataFiltered, 'FPR', {
         'GM_Test1': {column: 'TPR1'},
         'GM_Test_2': {column: 'TPR2'},
     }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
-
-    // Add jQuery UI slider
-    $("#thresh-slider1").slider({
-        range: true,
-        max: 1.0,
-        min: 0.0,
-        step: 0.0001,
-        values: [0.0, 1.0],
-        slide: function (event, ui) {
-            $("#threshLabel1").text(d3.format(".4f")(ui.values[0]));
-            $("#threshLabel2").text(d3.format(".4f")(ui.values[1]));
-            update(data);
-        }
-    });
-    chart.bind("#chart_line1");
-    chart.render();
-    // d3.select("#barChart").select("svg").remove();
-    // var svg = d3.select('#barChart')
-    //    .append('svg')
-    //    .attr('width', width + margins.left + margins.right)
-    //    .attr('height', height + margins.top + margins.bottom)
-    //    .append('g')
-    //    .attr('transform', 'translate(' + margins.left + ',' + margins.top + ')');
-    // Run the visualization for the first time
-    function update(filteredData){
-      var sliderValues = $("#thresh-slider1").slider("values");
-      var dataFiltered = filteredData.filter(function (d) {
-          return ((d.Threshold1 >= sliderValues[0]) && (d.Threshold1 <= sliderValues[1]))
-      });
-      console.log(dataFiltered);
-      var chart = makeLineChart(dataFiltered, 'FPR', {
-          'GM_Test1': {column: 'TPR1'},
-          'GM_Test_2': {column: 'TPR2'},
-      }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
-      return chart;
-    }
+    return chart;
+  }
 });
 
 function makeLineChart(dataset, xName, yObjs, axisLables) {
@@ -105,9 +126,9 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
      {y1:{column:'',name:'name',color:'color'},y2}
      */
     chartObj.data = dataset;
-    chartObj.margin = {top: 15, right: 60, bottom: 30, left: 50};
-    chartObj.width = 650 - chartObj.margin.left - chartObj.margin.right;
-    chartObj.height = 480 - chartObj.margin.top - chartObj.margin.bottom;
+    chartObj.margin = {top: 40, right: 50, bottom: 40, left: 90};
+    chartObj.width = 700 - chartObj.margin.left - chartObj.margin.right;
+    chartObj.height = 600 - chartObj.margin.top - chartObj.margin.bottom;
 
 // So we can pass the x and y as strings when creating the function
     chartObj.xFunct = function(d){return d[xName]};
@@ -151,7 +172,6 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
     chartObj.formatAsFloat = d3.format(".4f");
 
 //Create axis
-
     chartObj.xAxis = d3.svg.axis().scale(chartObj.xScale).orient("bottom").tickFormat(chartObj.xFormatter); //< Can be overridden in definition
     chartObj.yAxis = d3.svg.axis().scale(chartObj.yScale).orient("left").tickFormat(chartObj.yFormatter); //< Can be overridden in definition
 
@@ -184,13 +204,11 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
         /* Else Update the axis with the new scale */
         chartObj.svg.select('.x.axis').attr("transform", "translate(0," + chartObj.height + ")").call(chartObj.xAxis);
         chartObj.svg.select('.x.axis .label').attr("x", chartObj.width / 2);
-
         chartObj.svg.select('.y.axis').call(chartObj.yAxis);
         chartObj.svg.select('.y.axis .label').attr("x", -chartObj.height / 2);
 
         /* Force D3 to recalculate and update the line */
         for (var y  in yObjs) {yObjs[y].path.attr("d", yObjs[y].line);}
-
         d3.selectAll(".focus.line").attr("y2", chartObj.height);
         chartObj.chartDiv.select('svg').attr("width", chartObj.width + (chartObj.margin.left + chartObj.margin.right)).attr("height", chartObj.height + (chartObj.margin.top + chartObj.margin.bottom));
         chartObj.svg.select(".overlay").attr("width", chartObj.width).attr("height", chartObj.height);
@@ -214,17 +232,19 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
         chartObj.svg = chartObj.chartDiv.append("svg").attr("class", "chart-area").attr("width", chartObj.width + (chartObj.margin.left + chartObj.margin.right)).attr("height", chartObj.height + (chartObj.margin.top + chartObj.margin.bottom)).append("g").attr("transform", "translate(" + chartObj.margin.left + "," + chartObj.margin.top + ")");
 
         // Draw Lines
+        var yObjsLines = [];
         for (var y  in yObjs) {
-            yObjs[y].path = chartObj.svg.append("path").datum(chartObj.data).attr("class", "line").attr("d", yObjs[y].line).style("stroke", color(y)).attr("data-series", y).on("mouseover", function () {
-                focus.style("display", null);
-            }).on("mouseout", function () {
+          yObjsLines.push(y);
+          yObjs[y].path = chartObj.svg.append("path").datum(chartObj.data).attr("class", "line").attr("d", yObjs[y].line).style("stroke", color(y)).attr("data-series", y).on("mouseover", function () {
+              focus.style("display", null);
+          }).on("mouseout", function () {
                 focus.transition().delay(700).style("display", "none");
-            }).on("mousemove", mousemove);
+          }).on("mousemove", mousemove);
         }
 
         // Draw Axis
-        chartObj.svg.append("g").attr("class", "x axis").attr("transform", "translate(0," + chartObj.height + ")").call(chartObj.xAxis).append("text").attr("class", "label").attr("x", chartObj.width / 2).attr("y", 30).style("text-anchor", "middle").text(chartObj.xAxisLable);
-        chartObj.svg.append("g").attr("class", "y axis").call(chartObj.yAxis).append("text").attr("class", "label").attr("transform", "rotate(-90)").attr("y", -42).attr("x", -chartObj.height / 2).attr("dy", ".71em").style("text-anchor", "middle").text(chartObj.yAxisLable);
+        chartObj.svg.append("g").attr("class", "x axis").attr("transform", "translate(0," + chartObj.height + ")").call(chartObj.xAxis).append("text").attr("class", "label").attr("x", chartObj.width / 2).attr("y", 38).style({"text-anchor": "middle", "font-size": "15px"}).text(chartObj.xAxisLable);
+        chartObj.svg.append("g").attr("class", "y axis").call(chartObj.yAxis).append("text").attr("class", "label").attr("transform", "rotate(-90)").attr("y", -62).attr("x", -chartObj.height / 2).attr("dy", ".71em").style({"text-anchor": "middle", "font-size": "15px"}).text(chartObj.yAxisLable);
 
         //Draw tooltips
         var focus = chartObj.svg.append("g").attr("class", "focus").style("display", "none");
@@ -235,7 +255,7 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
             yObjs[y].tooltip.append("text").attr("x", 9).attr("dy", ".35em");
         }
 
-        // Year label
+        // FPR label
         focus.append("text").attr("class", "focus hover").attr("x", 9).attr("y", 7);
         // Focus line
         focus.append("line").attr("class", "focus line").attr("y1", 0).attr("y2", chartObj.height);
@@ -254,13 +274,25 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
         function toggleSeries(yObjs) {
             var cY = yObjs;
             cY.visible = !cY.visible;
-            if (cY.visible==false) {
+            if (cY.visible) { // If line is visible, disable it
+              var idx = yObjsLines.indexOf(cY.name);
+              if (idx > -1) {yObjsLines.splice(idx, 1);}
               cY.path[0][0].style.opacity = "0";
               cY.legend[0][0].style.opacity = "0.3";
-            }
-            else {
+              cY.tooltip[0][0].style.opacity = "0";
+            }else { //If line is not visible, enable it
+              yObjsLines.push(cY.name);
               cY.path[0][0].style.opacity = "1";
               cY.legend[0][0].style.opacity = "1";
+              cY.tooltip[0][0].style.opacity = "1";
+            }
+            // If no lines are on svg, disable hover and slider line
+            if (yObjsLines.length <= 0){
+              d3.select(".focus.line")[0][0].style.opacity = "0";
+              d3.select(".focus.hover")[0][0].style.opacity = "0";
+            }else{
+              d3.select(".focus.line")[0][0].style.opacity = "1";
+              d3.select(".focus.hover")[0][0].style.opacity = "1";
             }
         }
         function getToggleFn(series) {
@@ -288,7 +320,8 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
                 minY = Math.min(minY, chartObj.yScale(yObjs[y].yFunct(d)));
             }
             focus.select(".focus.line").attr("transform", "translate(" + chartObj.xScale(chartObj.xFunct(d)) + ")").attr("y1", minY);
-            focus.select(".focus.hover").text("FPR: " + chartObj.xFormatter(chartObj.xFunct(d)));
+            console.log(d);
+            focus.select(".focus.hover").text("AUC: " + chartObj.xFormatter(chartObj.xFunct(d)));
         }
 
     };
@@ -327,7 +360,7 @@ font-size: 11px;
 
 .chart-wrapper p {
   font-size: 16px;
-  margin-top:5px;
+  margin-top: 5px;
   margin-bottom: 40px;
 }
 
@@ -358,7 +391,7 @@ stroke-width: 5px;
   padding: 10px 40px;
 }
 .chart-wrapper .legend > div {
-  margin: 0px 25px 10px 0px;
+  margin: -500px 25px 10px 0px;
   flex-grow: 0;
   cursor: pointer;
 }
