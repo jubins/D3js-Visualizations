@@ -15,7 +15,10 @@
 
 <div id="selections" class="row" style="padding-top: 10px">
   <div class="col-md-4">
-    <div class="chart-wrapper" id="chart-line1"></div>
+    <div class="chart-wrapper" id="chart_area">
+      <div id="chart_line1"> </div>
+    </div>
+
     <div id="slider-div">
         <label>Threshold: <span id="threshLabel1" value="0.0">0.0</span> - <span id="threshLabel2" value="1.0">1.0</span></label>
         <div id="thresh-slider1"></div>
@@ -53,8 +56,6 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
         'GM_Test1': {column: 'TPR1'},
         'GM_Test_2': {column: 'TPR2'},
     }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
-    chart.bind("#chart-line1");
-    chart.render();
 
     // Add jQuery UI slider
     $("#thresh-slider1").slider({
@@ -64,14 +65,20 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
         step: 0.0001,
         values: [0.0, 1.0],
         slide: function (event, ui) {
-            d3.select('#chart-line1').remove();
             $("#threshLabel1").text(d3.format(".4f")(ui.values[0]));
             $("#threshLabel2").text(d3.format(".4f")(ui.values[1]));
-            var chart = update(data);
-            chart.bind("#chart-line1");
-            chart.render();
+            update(data);
         }
     });
+    chart.bind("#chart_line1");
+    chart.render();
+    // d3.select("#barChart").select("svg").remove();
+    // var svg = d3.select('#barChart')
+    //    .append('svg')
+    //    .attr('width', width + margins.left + margins.right)
+    //    .attr('height', height + margins.top + margins.bottom)
+    //    .append('g')
+    //    .attr('transform', 'translate(' + margins.left + ',' + margins.top + ')');
     // Run the visualization for the first time
     function update(filteredData){
       var sliderValues = $("#thresh-slider1").slider("values");
@@ -85,7 +92,6 @@ FPR,TPR1,Threshold1,TPR2,Threshold2
       }, {xAxis: 'False Positive Rate (1-Specificity)', yAxis: 'True Positive Rate (Sensitivity)'});
       return chart;
     }
-
 });
 
 function makeLineChart(dataset, xName, yObjs, axisLables) {
@@ -124,7 +130,6 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
 //Formatter functions for the axes
     chartObj.formatAsNumber = d3.format(".0f");
     chartObj.formatAsDecimal = d3.format(".2f");
-    chartObj.formatAsCurrency = d3.format("$.2f");
     chartObj.formatAsFloat = function (d) {
         if (d % 1 !== 0) {
             return d3.format(".4f")(d);
@@ -146,6 +151,7 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
     chartObj.formatAsFloat = d3.format(".4f");
 
 //Create axis
+
     chartObj.xAxis = d3.svg.axis().scale(chartObj.xScale).orient("bottom").tickFormat(chartObj.xFormatter); //< Can be overridden in definition
     chartObj.yAxis = d3.svg.axis().scale(chartObj.yScale).orient("left").tickFormat(chartObj.yFormatter); //< Can be overridden in definition
 
@@ -241,6 +247,26 @@ function makeLineChart(dataset, xName, yObjs, axisLables) {
             series.append('div').attr("class", "series-marker").style("background-color", color(y));
             series.append('p').text(y);
             yObjs[y].legend = series;
+            yObjs[y].legend.on("click",getToggleFn(yObjs[y]));
+        }
+
+        // Legend toggle
+        function toggleSeries(yObjs) {
+            var cY = yObjs;
+            cY.visible = !cY.visible;
+            if (cY.visible==false) {
+              cY.path[0][0].style.opacity = "0";
+              cY.legend[0][0].style.opacity = "0.3";
+            }
+            else {
+              cY.path[0][0].style.opacity = "1";
+              cY.legend[0][0].style.opacity = "1";
+            }
+        }
+        function getToggleFn(series) {
+            return function () {
+                return toggleSeries(series);
+            };
         }
 
         // Overlay to capture hover
@@ -334,6 +360,10 @@ stroke-width: 5px;
 .chart-wrapper .legend > div {
   margin: 0px 25px 10px 0px;
   flex-grow: 0;
+  cursor: pointer;
+}
+.chart-wrapper .legend .series-marker:hover {
+    opacity: 0.8;
 }
 .chart-wrapper .legend p {
   display:inline;
